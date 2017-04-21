@@ -1,0 +1,28 @@
+opam-version: "1.2"
+maintainer: "André Bauer <andre.bauer@posteo.de>"
+authors: ["André Bauer <andre.bauer@posteo.de>"]
+homepage: "https://github.com/bauerandre/postilotta"
+doc: "https://abinformatik.com/postilotta/doc"
+license: "ISC"
+dev-repo: "https://github.com/bauerandre/postilotta.git"
+bug-reports: "https://github.com/bauerandre/postilotta/issues"
+tags: []
+available: [ ocaml-version >= "4.03.0"]
+depends:
+[
+  "ocamlfind" {build}
+  "ocamlbuild" {build}
+  "topkg" {build & >= "0.9.0"}
+  "angstrom" 
+]
+
+depopts: []
+build:
+[[
+  "ocaml" "pkg/pkg.ml" "build"
+          "--dev-pkg" "%{dev}%"
+	  "--tests" "%{build-test}%"
+]]
+
+build-test:
+[[ "ocaml" "pkg/pkg.ml" "test" ]]

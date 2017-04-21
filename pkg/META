@@ -1,0 +1,7 @@
+description = ""
+version = "%%VERSION_NUM%%"
+requires = "angstrom"
+archive(byte) = "postilotta.cma"
+archive(native) = "postilotta.cmxa"
+plugin(byte) = "postilotta.cma"
+plugin(native) = "postilotta.cmxs"

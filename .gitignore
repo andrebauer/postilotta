@@ -1,0 +1,17 @@
+_build
+tmp
+*~
+\.\#*
+\#*#
+*.install
+*.native
+*.byte
+src/Makefile*
+src/key_gen.ml
+src/main.ml
+src/mirage-unikernel*
+src/myocamlbuild.ml
+src/postilotta.ukvm
+src/ukvm-bin
+src/postilotta
+src/.mirage.config
