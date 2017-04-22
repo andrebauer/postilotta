@@ -50,7 +50,7 @@ let check_parser_fails _ =
     "retr 3 3";
   ] in
   List.iter (fun cmd ->
-      assert_equal ~cmp:cmp_error_lazy (Error "s") @@ of_string cmd) wrong      
+      assert_equal ~cmp:cmp_error_lazy (Error (`Parse_error "s")) @@ of_string cmd) wrong      
 
 let suite = "Test POP3" >::: [
     "request parser succeds on correct input" >:: test_request_parser;

@@ -1,4 +1,4 @@
-true : bin_annot, safe_string, package(bytes), package(angstrom), package(oUnit), package(mirage-types-lwt)
+true : bin_annot, safe_string, package(bytes), package(angstrom), package(oUnit), package(mirage-types-lwt), package(astring), package(rresult)
 
 <src> : include
 

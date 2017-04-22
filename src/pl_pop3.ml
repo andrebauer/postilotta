@@ -1,12 +1,6 @@
 open Lwt
 open Astring
-
-let ok x = Lwt.return (Ok x)
-
-let (>>*=) m f =
-  m >>= function
-  | Error _ as e -> Lwt.return e
-  | Ok x -> f x
+open Pl_common
 
 module State = struct
   type t = 
