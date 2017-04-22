@@ -130,21 +130,21 @@ module Response = struct
   (* TODO *)
   open Printf  
   let to_string = function
-    | Statistics (n, m) -> sprintf "%d %d" n m
-    | Sign_off -> "POP3 server signing off"
+    | Statistics (n, m) -> sprintf "%d %d\r\n" n m
+    | Sign_off -> "POP3 server signing off\r\n"
     | Ready -> "POP3 server ready\r\n"
     | List (n, m, l) ->
         begin
           match l with
-          | [] -> "%d messages (%d octets)"
-          | l -> sprintf "scan listing follows" (* TODO *)
+          | [] -> "%d messages (%d octets)\r\n"
+          | l -> sprintf "scan listing follows\r\n" (* TODO *)
         end
-    | Message msg -> sprintf "message follows" (* TODO *)
-    | Delete n -> sprintf "message %d deleted" n
-    | Reset -> ""
-    | Okay s -> s
-    | Valid_mailbox s -> sprintf "%s is a valid mailbox" s
-    | User_confirmed -> "user confirmed"
+    | Message msg -> sprintf "message follows\r\n" (* TODO *)
+    | Delete n -> sprintf "message %d deleted\r\n" n
+    | Reset -> "\r\n"
+    | Okay s -> sprintf "%s\r\n" s
+    | Valid_mailbox s -> sprintf "%s is a valid mailbox\r\n" s
+    | User_confirmed -> "user confirmed\r\n"
       
 
   let pp_error ppf = function
@@ -210,7 +210,7 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
         let resp = "+OK " ^ (Response.to_string r) in
         TCP.write flow (Cstruct.of_string resp)
     | Error e ->
-        TCP.write flow (Cstruct.of_string "-ERR")
+        TCP.write flow (Cstruct.of_string "-ERR\r\n")
 
   let close flow =
     TCP.close flow >>= fun () -> ok ()
@@ -240,6 +240,10 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
         match Request.of_string data with
         | Ok request ->
             let state, response = handle state request in
+            if response = Ok Sign_off then
+              write flow response >>= fun ans ->
+              close flow
+            else 
             write flow response >>= fun ans ->
             write_handler flow state ans
         | Error error as e->
