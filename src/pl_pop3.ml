@@ -148,22 +148,21 @@ module Response = struct
     | Okay s -> sprintf "%s\r\n" s
     | Valid_mailbox s -> sprintf "%s is a valid mailbox\r\n" s
     | User_confirmed -> "user confirmed\r\n"
-      
-  let string_of_error = function
+
+  let pp_error ppf = function
+  | `Invalid s -> Fmt.pf ppf "%s" s
+  | `Auth_must_give_user_command -> Fmt.pf ppf "[AUTH] Must give USER command"
+  | `Auth_must_give_pass_command -> Fmt.pf ppf "[AUTH] Must give PASS command"
+  | `Not_implemented -> Fmt.pf ppf "Not implemented"
+
+  let string_of_error' = function
   | `Invalid s -> sprintf "%s\r\n" s
   | `Auth_must_give_user_command -> "[AUTH] Must give USER command\r\n"
   | `Auth_must_give_pass_command -> "[AUTH] Must give PASS command\r\n"
   | `Not_implemented -> "Not implemented\r\n"
 
-
-  (*
-  let pp_error ppf = function
-  | `Invalid s -> Fmt.pf ppf s
-  | `Auth_must_give_user_command -> Fmt.pf ppf "[AUTH] Must give USER command"
-  | `Auth_must_give_pass_command -> Fmt.pf ppf "[AUTH] Must give PASS command"
-  | `Not_implemented -> Fmt.pf ppf "Not implemented"
-  *)
-
+  let string_of_error e =
+    ((Fmt.to_to_string pp_error) e) ^ "\r\n"
 end
   
 module Session (TCP: Mirage_protocols_lwt.TCP) = struct
