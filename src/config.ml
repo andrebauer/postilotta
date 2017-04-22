@@ -21,7 +21,12 @@ let main =
 
 let stack = generic_stackv4 default_network
 
+let packages = [ 
+  package "angstrom";
+  package "astring";
+]
+  
 let () =
-  register "postilotta" [
+  register "postilotta" ~packages [
     main $ stack
   ]

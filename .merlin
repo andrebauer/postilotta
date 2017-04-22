@@ -1,4 +1,5 @@
 B _build/**
+B src/_build/**
 
 S src/**
 S test/**
