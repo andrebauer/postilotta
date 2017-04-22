@@ -33,6 +33,14 @@ module Request = struct
     | Top of int * int
     | User of string
 
+  type error = [
+    | `Parse_error of string 
+  ]
+
+  open Printf
+  let string_of_error = function
+  | `Parse_error s -> sprintf "parse error\r\n"
+  
   let integer =
     take_while1
       (function
@@ -98,7 +106,9 @@ module Request = struct
 
   let of_string s =
     let ts = Astring.String.trim s in
-    parse_only pop3 (`String ts)
+    Rresult.R.reword_error
+      (fun err -> `Parse_error err)
+      @@ parse_only pop3 (`String ts)
 end
 
 
@@ -129,7 +139,7 @@ module Response = struct
   
   (* TODO *)
   open Printf  
-  let to_string = function
+  let string_of_t = function
     | Statistics (n, m) -> sprintf "%d %d\r\n" n m
     | Sign_off -> "POP3 server signing off\r\n"
     | Ready -> "POP3 server ready\r\n"
@@ -146,6 +156,12 @@ module Response = struct
     | Valid_mailbox s -> sprintf "%s is a valid mailbox\r\n" s
     | User_confirmed -> "user confirmed\r\n"
       
+  let string_of_error = function
+  | `Invalid s -> sprintf "%s\r\n" s
+  | `Auth_must_give_user_command -> "[AUTH] Must give USER command\r\n"
+  | `Auth_must_give_pass_command -> "[AUTH] Must give PASS command\r\n"
+  | `Not_implemented -> "Not implemented\r\n"
+
 
   let pp_error ppf = function
   | `Invalid s -> Fmt.pf ppf s
@@ -154,9 +170,14 @@ module Response = struct
   | `Not_implemented -> Fmt.pf ppf "Not implemented"
 
   (*
+  let pp_string_of_error ppf error =
+    Fmt.strf_like ppf (fmt_error error)
+*)  
+
+  (*
   let to_string = function
-  | Ok t -> string_of_t t
-  | Error e -> pp_error Format.std_formatter e          
+  | Ok t -> "+OK " ^ (string_of_t t)
+  | Error e -> "-ERR " ^ (string_of_error e)
 *)
 end
   
@@ -166,7 +187,13 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
   open State
 
   type t = State.t * Response.t
-    
+
+  type error = [ Request.error | Response.error ]
+
+  let string_of_error = function 
+  | #Response.error as e -> Response.string_of_error e
+  | #Request.error as e -> Request.string_of_error e
+
   let handle_auth_init = function
   | User s -> Authorization_known_user s, Ok (Valid_mailbox s)
   | Quit -> Authorization_init, Ok Sign_off
@@ -185,7 +212,7 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
   let handle_update maildir _ =
     Update maildir, Ok Sign_off  
   
-  let handle = function
+  let handle : State.t -> Request.t -> State.t * (Response.t, error) Result.result = function
     | Authorization_init -> handle_auth_init 
     | Authorization_known_user user -> handle_auth_known_user user
     | Transaction maildir (* of Md.t *) -> handle_transaction maildir
@@ -205,12 +232,19 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
   | User of string 
 *)
 
+  (*
+  let write flow resp =
+   Response.to_string resp |>
+    Cstruct.of_string |>
+      TCP.write flow *)
+
   let write flow = function
-    | Ok r ->
-        let resp = "+OK " ^ (Response.to_string r) in
-        TCP.write flow (Cstruct.of_string resp)
-    | Error e ->
-        TCP.write flow (Cstruct.of_string "-ERR\r\n")
+  | Ok r ->
+      let resp = "+OK " ^ (Response.string_of_t r) in
+      TCP.write flow (Cstruct.of_string resp)
+  | Error err ->
+      let err = "-ERR " ^ (string_of_error err) in
+      TCP.write flow (Cstruct.of_string err)        
 
   let close flow =
     TCP.close flow >>= fun () -> ok ()
@@ -247,7 +281,8 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
             write flow response >>= fun ans ->
             write_handler flow state ans
         | Error error as e->
-            write flow e
+            write flow e >>= fun ans ->
+            write_handler flow state ans
       end
         
   let init = Authorization_init, Ok Ready
