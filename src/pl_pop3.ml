@@ -1,4 +1,5 @@
 open Lwt
+open Astring
 
 let ok x = Lwt.return (Ok x)
 
@@ -105,7 +106,7 @@ module Request = struct
        top]
 
   let of_string s =
-    let ts = Astring.String.trim s in
+    let ts = String.trim s in
     Rresult.R.reword_error
       (fun err -> `Parse_error err)
       @@ parse_only pop3 (`String ts)
@@ -122,7 +123,6 @@ module Response = struct
     | Delete of int
     | Reset
     | Okay of string
-    (*    | Invalid of string *)
     | Valid_mailbox of string
     | User_confirmed
 
@@ -131,7 +131,6 @@ module Response = struct
     | `Auth_must_give_user_command
     | `Auth_must_give_pass_command
     | `Not_implemented ]
-  
   
 
   let end_of_line = "\r\n" 
@@ -163,22 +162,14 @@ module Response = struct
   | `Not_implemented -> "Not implemented\r\n"
 
 
+  (*
   let pp_error ppf = function
   | `Invalid s -> Fmt.pf ppf s
   | `Auth_must_give_user_command -> Fmt.pf ppf "[AUTH] Must give USER command"
   | `Auth_must_give_pass_command -> Fmt.pf ppf "[AUTH] Must give PASS command"
   | `Not_implemented -> Fmt.pf ppf "Not implemented"
+  *)
 
-  (*
-  let pp_string_of_error ppf error =
-    Fmt.strf_like ppf (fmt_error error)
-*)  
-
-  (*
-  let to_string = function
-  | Ok t -> "+OK " ^ (string_of_t t)
-  | Error e -> "-ERR " ^ (string_of_error e)
-*)
 end
   
 module Session (TCP: Mirage_protocols_lwt.TCP) = struct
@@ -212,40 +203,20 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
   let handle_update maildir _ =
     Update maildir, Ok Sign_off  
   
-  let handle : State.t -> Request.t -> State.t * (Response.t, error) Result.result = function
+  let handle = function
     | Authorization_init -> handle_auth_init 
     | Authorization_known_user user -> handle_auth_known_user user
-    | Transaction maildir (* of Md.t *) -> handle_transaction maildir
+    | Transaction maildir -> handle_transaction maildir
     | Update maildir -> handle_update maildir
 
-  (*
-  | Capabilities -> 
-  | Delete of int
-  | List of int option
-  | Noop
-  | Password of string
-  | Quit      
-  | Retrieve of int
-  | Reset
-  | Statistic
-  | Top of int * int
-  | User of string 
-*)
-
-  (*
-  let write flow resp =
-   Response.to_string resp |>
-    Cstruct.of_string |>
-      TCP.write flow *)
-
-  let write flow = function
-  | Ok r ->
-      let resp = "+OK " ^ (Response.string_of_t r) in
-      TCP.write flow (Cstruct.of_string resp)
-  | Error err ->
-      let err = "-ERR " ^ (string_of_error err) in
-      TCP.write flow (Cstruct.of_string err)        
-
+  let write flow data =
+    let resp = 
+      match data with 
+      | Ok r -> "+OK " ^ (Response.string_of_t r) 
+      | Error err -> "-ERR " ^ (string_of_error err)
+    in
+    TCP.write flow (Cstruct.of_string resp)
+  
   let close flow =
     TCP.close flow >>= fun () -> ok ()
 
@@ -261,11 +232,9 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
           f "Error reading data from established connection: %a"
             TCP.pp_error e);
       close flow
-      (* Lwt.return_unit *)
   | Ok `Eof ->
       Logs.info (fun f -> f "Closing connection!");
       close flow
-  (* Lwt.return_unit *)
   | Ok (`Data b) ->
       let data = Cstruct.to_string b in
       Logs.debug (fun f -> f "read: %d bytes:\n%s"
@@ -285,8 +254,6 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
             write_handler flow state ans
       end
         
-  let init = Authorization_init, Ok Ready
- 
   let run flow =
     write flow (Ok Ready) >>= write_handler flow Authorization_init
 end
