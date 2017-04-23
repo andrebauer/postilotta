@@ -42,7 +42,7 @@ module Make
       FS.read fs t.path 0 t.size
 
     let top t length =
-      FS.read fs t.path 0 length 
+      FS.read fs t.path 0 t.size  
       (* TODO: This is not a correct implementation of top,  *)
 
     let mark t m = { t with mark = m }

@@ -41,7 +41,7 @@ module Request = struct
       (function
         | '0' .. '9' -> true
         | _ -> false)
-    >>| int_of_string
+    >>| int_of_string <?> "Integer expected"
 
   let is_space = function
     | ' ' | '\t' -> true
@@ -103,7 +103,7 @@ module Request = struct
     let ts = String.trim s in
     Rresult.R.reword_error
       (fun err -> `Parse_error err)
-      @@ parse_only pop3 (`String ts)
+    @@ parse_only pop3 (`String ts)
 end
 
 
