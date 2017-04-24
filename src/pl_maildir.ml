@@ -55,11 +55,11 @@ module Make
       id: int;
     }
 
-    type error = [ parse_error | Mirage_fs.error ] 
+    type error = [ Parser.error | Mirage_fs.error ] 
 
     let pp_error ppf = function
     | #Mirage_fs.error as e -> Mirage_fs.pp_error ppf e
-    | #parse_error as e -> Pl_common.pp_error ppf e
+    | #Parser.error as e -> Parser.pp_error ppf e
 
     let string_of_error e =
       (Fmt.to_to_string pp_error) e
@@ -95,7 +95,7 @@ module Make
            (Cstruct.t list, Mirage_fs.error) Lwt_result.t :>
            (Cstruct.t list, error) Lwt_result.t)
         (fun buffer_list ->
-           byte_stuff_cstruct @@ Cstruct.concat buffer_list)
+           Parser.byte_stuff_cs @@ Cstruct.concat buffer_list)
 
     
     let mark t m = { t with mark = m }
