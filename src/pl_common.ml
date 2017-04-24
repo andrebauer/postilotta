@@ -34,10 +34,13 @@ let bs_lines = sep_by end_of_line bs_or_line
 
 type parse_error = [ `Parse_error of string ] 
 
+let pp_error ppf = function
+| `Parse_error s -> Fmt.pf ppf "Parse error: %s" s
+
 let byte_stuffing s =
   let open Rresult in
   R.reword_error
-    (fun err -> `Parse_error err (* : string -> parse_error *) )
+    (fun err -> `Parse_error err)
     (parse_only bs_lines s)
   >>| String.concat ~sep:"\r\n"
 
