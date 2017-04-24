@@ -32,9 +32,13 @@ let bs_or_line = byte_stuffing <|> line
 
 let bs_lines = sep_by end_of_line bs_or_line 
 
+type parse_error = [ `Parse_error of string ] 
+
 let byte_stuffing s =
   let open Rresult in
-  parse_only bs_lines s
+  R.reword_error
+    (fun err -> `Parse_error err (* : string -> parse_error *) )
+    (parse_only bs_lines s)
   >>| String.concat ~sep:"\r\n"
 
 let byte_stuff_cstruct cs =
