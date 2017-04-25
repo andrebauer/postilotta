@@ -211,7 +211,7 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
     TCP.write flow (Cstruct.of_string resp)
   
   let close flow =
-    TCP.close flow >>= fun () -> ok ()
+    TCP.close flow >>= fun () -> Lwt_result.return ()
 
   let rec write_handler flow state = function
   | Error write_error -> close flow

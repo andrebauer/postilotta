@@ -1,6 +1,6 @@
 open Lwt
 open Astring
-open Pl_common
+module T = Pl_parser.Transfer
 
 module type MAILFS =
 sig
@@ -55,11 +55,11 @@ module Make
       id: int;
     }
 
-    type error = [ Parser.error | Mirage_fs.error ] 
+    type error = [ T.error | Mirage_fs.error ] 
 
     let pp_error ppf = function
     | #Mirage_fs.error as e -> Mirage_fs.pp_error ppf e
-    | #Parser.error as e -> Parser.pp_error ppf e
+    | #T.error as e -> T.pp_error ppf e
 
     let string_of_error e =
       (Fmt.to_to_string pp_error) e
@@ -67,7 +67,8 @@ module Make
     let fs = Mailfs.fs
     
     let load ~path ~id =
-      FS.size fs path >>*= fun size' ->
+      let open Lwt_result in
+      FS.size fs path >>= fun size' ->
       let size = Int64.to_int size' in
       return_ok {
         path;
@@ -95,7 +96,7 @@ module Make
            (Cstruct.t list, Mirage_fs.error) Lwt_result.t :>
            (Cstruct.t list, error) Lwt_result.t)
         (fun buffer_list ->
-           Parser.byte_stuff_cs @@ Cstruct.concat buffer_list)
+           T.byte_stuff_cs @@ Cstruct.concat buffer_list)
 
     
     let mark t m = { t with mark = m }

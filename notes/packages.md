@@ -10,7 +10,7 @@ http://docs.mirage.io/index.html
 ## ocaml-tls
 
 https://github.com/mirleft/ocaml-tls
-
+https://github.com/talex5/cuekeeper/blob/master/server/unikernel.ml
 
 ## Parser
 
@@ -42,6 +42,7 @@ https://github.com/CREATe-centre/receive-mail
 
 ### smtp
 https://github.com/vbmithr/ocaml-smtp
+https://github.com/agrison/ocamail
 
 ## Persistenz
 
@@ -102,3 +103,11 @@ https://github.com/janestreet/jbuilder
 https://github.com/talex5/cuekeeper
 
 http://kcsrk.info/ocaml/irmin/crdt/2017/02/15/an-easy-interface-to-irmin-library/
+
+## Behavioural types
+
+http://kcsrk.info/ocaml/types/2016/06/30/behavioural-types/
+
+## FuSe
+
+http://www.di.unito.it/~padovani/Software/FuSe/FuSe.html
