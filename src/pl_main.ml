@@ -17,8 +17,32 @@ module Main (S: Mirage_stack_lwt.V4)(FS: Mirage_fs_lwt.S) = struct
   
   module Ch = Mirage_channel_lwt.Make(S.TCPV4)
   
-  let start s =
+  let start s fs =
     let port = Key_gen.pop3_port () in
+    FS.listdir fs "marcus" >>=  function
+    | Error e ->
+        Logs.warn (fun f -> f "Error reading fs: %a" FS.pp_error e);
+        Lwt.return_unit
+    | Ok dir ->
+        List.iter (fun item ->
+            Logs.info (fun f -> f "entry: %s" item))
+          
+          dir;
+        Lwt.return_unit >>= fun () ->
+        FS.read fs "10.txt.utf-8" 7 7 >>=
+        function
+        | Error e ->
+            Logs.warn (fun f -> f "Error reading fs: %a" FS.pp_error e);
+            Lwt.return_unit
+        | Ok buffer_list ->
+            Logs.info (fun f -> f "pages: %n" @@ List.length buffer_list);
+            List.iteri (fun n item ->
+            Logs.info (fun f -> f "page(%d): %s" n @@ Cstruct.to_string item))
+              
+              buffer_list;
+            Lwt.return_unit >>= fun () ->
+        
+        
     S.listen_tcpv4 s ~port (fun flow ->
         let ch = Ch.create flow in
         Ch.write_line ch "Hello channel";
@@ -29,8 +53,6 @@ module Main (S: Mirage_stack_lwt.V4)(FS: Mirage_fs_lwt.S) = struct
             | Error e -> Lwt.return_unit
             | Ok `Eof -> Lwt.return_unit
                | Ok `Data (buffer *)
-            
-        
         let dst, dst_port = S.TCPV4.dst flow in
         Logs.info (fun f -> f "new tcp connection from IP %s on port %d"
                       (Ipaddr.V4.to_string dst) dst_port);

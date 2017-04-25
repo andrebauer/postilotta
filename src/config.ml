@@ -14,10 +14,12 @@ let keys = Key.[
     abstract pop3_port;
     abstract smtp_port
   ]
-  
+
+let maildir = fat_of_files ~dir:"_data/maildir" ()
+
 let main =
   foreign ~keys
-    "Pl_main.Main" (stackv4 @-> job)
+    "Pl_main.Main" (stackv4 @-> fs @-> job)
 
 let stack = generic_stackv4 default_network
 
@@ -28,5 +30,5 @@ let packages = [
   
 let () =
   register "postilotta" ~packages [
-    main $ stack
+    main $ stack $ maildir
   ]
