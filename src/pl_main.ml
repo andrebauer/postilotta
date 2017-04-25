@@ -7,14 +7,30 @@ let yellow fmt = Printf.sprintf ("\027[33m"^^fmt^^"\027[m")
 let blue fmt   = Printf.sprintf ("\027[36m"^^fmt^^"\027[m")
 
 
-module Main (S: Mirage_stack_lwt.V4) = struct
+module Main (S: Mirage_stack_lwt.V4)(FS: Mirage_fs_lwt.S) = struct
 
   module Pop3_Session = Pl_pop3.Session(S.TCPV4)
 
+  (*   module F = Mirage_flow_lwt. *)
+
+  (* module F = S.TCPV4 *)
+  
+  module Ch = Mirage_channel_lwt.Make(S.TCPV4)
   
   let start s =
     let port = Key_gen.pop3_port () in
-    S.listen_tcpv4 s ~port (fun flow ->      
+    S.listen_tcpv4 s ~port (fun flow ->
+        let ch = Ch.create flow in
+        Ch.write_line ch "Hello channel";
+        Ch.flush ch >>= function
+        | Error e -> Lwt.return_unit
+        | Ok () -> Lwt.return_unit >>= fun () ->
+            (* Ch.read_line ch >>= function
+            | Error e -> Lwt.return_unit
+            | Ok `Eof -> Lwt.return_unit
+               | Ok `Data (buffer *)
+            
+        
         let dst, dst_port = S.TCPV4.dst flow in
         Logs.info (fun f -> f "new tcp connection from IP %s on port %d"
                       (Ipaddr.V4.to_string dst) dst_port);
