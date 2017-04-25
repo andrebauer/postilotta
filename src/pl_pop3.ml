@@ -1,6 +1,6 @@
 open Lwt
 open Astring
-open Pl_common
+(* open Pl_common *)
 
 module State = struct
   type t = 
@@ -11,7 +11,11 @@ module State = struct
   
 end
   
+let eol = "\r\n"
 
+let end_of_multiline = "."
+
+  
 module Request = struct
   open Angstrom
 
@@ -32,9 +36,8 @@ module Request = struct
     | `Parse_error of string 
   ]
 
-  open Printf
   let string_of_error = function
-  | `Parse_error s -> sprintf "parse error\r\n"
+  | `Parse_error s -> Fmt.strf "parse error: %s" s
   
   let integer =
     take_while1
@@ -47,27 +50,29 @@ module Request = struct
     | ' ' | '\t' -> true
     | _ -> false
 
-  let eol = "\r\n"
   let skip_ws = skip_while is_space
+
   let take_all = take_while1 (fun _ -> true)
 
+  let end_of_command = end_of_input
+  
   let no_param name t =
     lift
       (fun _ -> t)
-      (string_ci name <* end_of_input)
+      (string_ci name <* end_of_command)
 
-  let one_param name take f = 
+  let one_param name parser f = 
     lift2
       (fun _ p -> f p)
       (string_ci name <* skip_ws)
-      (take <* end_of_input)
+      (parser <* end_of_command)
 
   let two_params name first second f =
     lift3
       (fun _ a b -> f a b)
       (string_ci name <* skip_ws)
       (first <* skip_ws)
-      (second <* end_of_input)
+      (second <* end_of_command)
 
   let noop = no_param "noop" Noop
   let quit = no_param "quit" Quit
@@ -98,9 +103,9 @@ module Request = struct
        retr;
        dele;
        top]
-
+      
   let of_string s =
-    let ts = String.trim s in
+    let ts = String.trim s in 
     Rresult.R.reword_error
       (fun err -> `Parse_error err)
     @@ parse_only pop3 (`String ts)
@@ -113,41 +118,36 @@ module Response = struct
     | Sign_off
     | Ready
     | List of int * int * (int * int) list
-    | Message of string (* TODO Abstract the message *)
+    | Message of Cstruct.t (* TODO Abstract the message *)
     | Delete of int
     | Reset
     | Okay of string
     | Valid_mailbox of string
-    | User_confirmed
+    | User_confirmed 
 
   type error = [
     | `Invalid of string
     | `Auth_must_give_user_command
     | `Auth_must_give_pass_command
     | `Not_implemented ]
-  
-
-  let end_of_line = "\r\n" 
-  let end_of_multiline = "."
-  
+   
   (* TODO *)
-  open Printf  
   let string_of_t = function
-    | Statistics (n, m) -> sprintf "%d %d\r\n" n m
-    | Sign_off -> "POP3 server signing off\r\n"
-    | Ready -> "POP3 server ready\r\n"
+    | Statistics (n, m) -> Fmt.strf "%d %d" n m
+    | Sign_off -> "POP3 server signing off"
+    | Ready -> "POP3 server ready"
     | List (n, m, l) ->
         begin
           match l with
-          | [] -> "%d messages (%d octets)\r\n"
-          | l -> sprintf "scan listing follows\r\n" (* TODO *)
+          | [] -> Fmt.strf "%d messages (%d octets)" n m
+          | l -> Fmt.strf "scan listing follows" (* TODO *)
         end
-    | Message msg -> sprintf "message follows\r\n" (* TODO *)
-    | Delete n -> sprintf "message %d deleted\r\n" n
-    | Reset -> "\r\n"
-    | Okay s -> sprintf "%s\r\n" s
-    | Valid_mailbox s -> sprintf "%s is a valid mailbox\r\n" s
-    | User_confirmed -> "user confirmed\r\n"
+    | Message msg -> Fmt.strf "message follows" (* TODO *)
+    | Delete n -> Fmt.strf "message %d deleted" n
+    | Reset -> Fmt.strf "reset"
+    | Okay s -> Fmt.strf "%s" s
+    | Valid_mailbox s -> Fmt.strf "%s is a valid mailbox" s
+    | User_confirmed -> "user confirmed"
 
   let pp_error ppf = function
   | `Invalid s -> Fmt.pf ppf "%s" s
@@ -156,13 +156,13 @@ module Response = struct
   | `Not_implemented -> Fmt.pf ppf "Not implemented"
 
   let string_of_error' = function
-  | `Invalid s -> sprintf "%s\r\n" s
-  | `Auth_must_give_user_command -> "[AUTH] Must give USER command\r\n"
-  | `Auth_must_give_pass_command -> "[AUTH] Must give PASS command\r\n"
-  | `Not_implemented -> "Not implemented\r\n"
+  | `Invalid s -> Fmt.strf "%s" s
+  | `Auth_must_give_user_command -> "[AUTH] Must give USER command"
+  | `Auth_must_give_pass_command -> "[AUTH] Must give PASS command"
+  | `Not_implemented -> "Not implemented"
 
   let string_of_error e =
-    ((Fmt.to_to_string pp_error) e) ^ "\r\n"
+    (Fmt.to_to_string pp_error) e
 end
   
 module Session (TCP: Mirage_protocols_lwt.TCP) = struct
@@ -205,19 +205,19 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
   let write flow data =
     let resp = 
       match data with 
-      | Ok r -> "+OK " ^ (Response.string_of_t r) 
-      | Error err -> "-ERR " ^ (string_of_error err)
+      | Ok r -> Fmt.strf "+OK %s\r\n" (Response.string_of_t r)
+      | Error err -> Fmt.strf "-ERR %s\r\n" (string_of_error err)
     in
     TCP.write flow (Cstruct.of_string resp)
   
   let close flow =
-    TCP.close flow >>= fun () -> Lwt_result.return ()
-
+    Lwt_result.ok @@ TCP.close flow 
+  
   let rec write_handler flow state = function
   | Error write_error -> close flow
   | Ok () ->
-      TCP.read flow >>= fun req ->
-      read_handler flow state req
+      TCP.read flow >>= 
+      read_handler flow state 
 
   and read_handler flow state = function
   | Error e ->
@@ -240,11 +240,11 @@ module Session (TCP: Mirage_protocols_lwt.TCP) = struct
               write flow response >>= fun ans ->
               close flow
             else 
-            write flow response >>= fun ans ->
-            write_handler flow state ans
+            write flow response >>= (* fun ans -> *)
+            write_handler flow state (* ans *)
         | Error error as e->
-            write flow e >>= fun ans ->
-            write_handler flow state ans
+            write flow e >>= (* fun ans -> *)
+            write_handler flow state (* ans *)
       end
         
   let run flow =

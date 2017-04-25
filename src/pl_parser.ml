@@ -1,13 +1,27 @@
 open Astring
+open Angstrom
+open Rresult
+
+type error = [ `Parse_error of string ] 
+
+let pp_error ppf = function
+| `Parse_error s -> Fmt.pf ppf "Parse error: %s" s
+
+let take_while_eol =
+  take_while (function
+    | '\n' | '\r' -> false
+    | _ -> true)
+
+let parse t s =
+  R.reword_error
+    (fun err -> `Parse_error err)
+    (parse_only t s)
+    
+let parse_cs parser cs =
+  let bs = Cstruct.to_bigarray cs in
+  parser (`Bigstring bs)
 
 module Transfer = struct 
-
-  open Angstrom
-
-  let take_while_eol =
-    take_while (function
-      | '\n' | '\r' -> false
-      | _ -> true)
 
   let dot_char = char '.'
 
@@ -25,39 +39,26 @@ module Transfer = struct
 
   let eol_with_crlf = (string "\r\n" *> return ()) <?> "end_of_line"
   
-  type error = [ `Parse_error of string ] 
-
-  let pp_error ppf = function
-  | `Parse_error s -> Fmt.pf ppf "Parse error: %s" s
-
-  let parse t s =
-    let open Rresult in
-    R.reword_error
-      (fun err -> `Parse_error err)
-      (parse_only t s)
-
-  let parse_cs parser cs =
-    let open Rresult in
-    let bs = Cstruct.to_bigarray cs in
-    parser (`Bigstring bs)
-   
-  
-  let byte_stuff s =
-    let open Rresult in
+  let encode s =
     parse bs_lines s
     >>| String.concat ~sep:"\r\n"
 
-  let byte_stuff_cs cs =
-    let open Rresult in
-    parse_cs byte_stuff cs >>| Cstruct.of_string
+  let encode_cs cs =
+    parse_cs encode cs >>| Cstruct.of_string
 
   let lines = sep_by end_of_line line
 
   let lines_of_cs =
-    let open Rresult in
     parse_cs (fun t -> parse lines t)
+end
 
-  let take_lines n =
-    let line = (take_while_eol <* end_of_line) <|> take_while_eol in
-    parse (count n line)
+module M = struct
+
+  let line = (take_while_eol <* end_of_line) <|> take_while_eol 
+  
+  let take_lines n s =
+    parse (count n line) s >>| String.concat ~sep:"\r\n"
+
+  let take_lines_cs n cs =
+    parse_cs (take_lines n) cs >>| Cstruct.of_string
 end
