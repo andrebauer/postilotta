@@ -29,23 +29,31 @@ module Transfer = struct
     (dot_char *> take_while_eol)
     <|> (dot_char *> take_while_eol <* end_of_line)
 
-  let byte_stuffing = String.append ".." <$> line_begins_with_dot
+  let encode_byte_stuffing = String.append ".." <$> line_begins_with_dot
 
   let line = take_while_eol <|> (take_while_eol <* end_of_line) 
 
-  let bs_or_line = byte_stuffing <|> line
+  let encode_bs_or_line = encode_byte_stuffing <|> line
 
-  let bs_lines = sep_by end_of_line bs_or_line 
+  let decode_bs_or_line = line_begins_with_dot <|> line
+  
+  let encode_bs_lines = sep_by end_of_line encode_bs_or_line 
 
+  let decode_bs_lines = sep_by end_of_line decode_bs_or_line
+  
   let eol_with_crlf = (string "\r\n" *> return ()) <?> "end_of_line"
   
   let encode s =
-    parse bs_lines s
+    parse encode_bs_lines s
     >>| String.concat ~sep:"\r\n"
 
   let encode_cs cs =
     parse_cs encode cs >>| Cstruct.of_string
 
+  let decode s =
+    parse decode_bs_lines s
+    >>| String.concat ~sep:"\n"      
+  
   let lines = sep_by end_of_line line
 
   let lines_of_cs =
